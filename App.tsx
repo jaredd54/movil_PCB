@@ -1,39 +1,35 @@
-import React, { useEffect, useState } from 'react';
-import { FlatList, Text, View } from 'react-native';
-import { supabase } from '../utils/supabase';
+import { useEffect, useState } from 'react'
+import { View } from 'react-native'
+import 'react-native-url-polyfill/auto'
+import Account from './components/Account'
+import Auth from './components/Auth'
+import { supabase } from './Lib/supabase'
 
 export default function App() {
-  const [todos, setTodos] = useState([]);
+  const [userId, setUserId] = useState<string | null>(null)
+  const [email, setEmail] = useState<string | undefined>(undefined)
 
   useEffect(() => {
-    const getTodos = async () => {
-      try {
-        const { data: todos, error } = await supabase.from('todos').select();
-
-        if (error) {
-          console.error('Error fetching todos:', error.message);
-          return;
-        }
-
-        if (todos && todos.length > 0) {
-          setTodos(todos);
-        }
-      } catch (error) {
-        console.error('Error fetching todos:', error.message);
+    supabase.auth.getClaims().then(({ data: { claims } }) => {
+      if (claims) {
+        setUserId(claims.sub)
+        setEmail(claims.email)
       }
-    };
+    })
 
-    getTodos();
-  }, []);
+    supabase.auth.onAuthStateChange(async (_event, _session) => {
+      const {
+        data: { claims },
+      } = await supabase.auth.getClaims()
+      if (claims) {
+        setUserId(claims.sub)
+        setEmail(claims.email)
+      } else {
+        setUserId(null)
+        setEmail(undefined)
+      }
+    })
+  }, [])
 
-  return (
-    <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-      <Text>Todo List</Text>
-      <FlatList
-        data={todos}
-        keyExtractor={(item) => item.id.toString()}
-        renderItem={({ item }) => <Text key={item.id}>{item.name}</Text>}
-      />
-    </View>
-  );
-};
+  return <View>{userId ? <Account key={userId} userId={userId} email={email} /> : <Auth />}</View>
+}
